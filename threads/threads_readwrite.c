@@ -9,13 +9,9 @@
  */
 
 #include <stdio.h>
-
 #include <stdlib.h>
-
 #include <pthread.h>
-
 #include <string.h>
-
 #include <unistd.h>
 
 typedef struct
@@ -139,15 +135,10 @@ int main(int argc, char *argv[])
     pthread_rwlock_destroy(rw);
 
     free(rw);
-
     free(n);
-
     free(w_args);
-
     free(w_th);
-
     free(r_args);
-
     free(r_th);
 
     return 0;
