@@ -74,6 +74,3 @@ int main(int argc, char *argv[])
     pthread_cond_destroy(&condFuel);
     return 0;
 }
-Courses with this lesson
-    Course thumb
-        Course thumb
