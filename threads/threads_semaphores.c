@@ -1,4 +1,4 @@
-https : // code-vault.net/lesson/v9l3sqtpft:1609091934815
+// https : // code-vault.net/lesson/v9l3sqtpft:1609091934815
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,7 +8,7 @@ https : // code-vault.net/lesson/v9l3sqtpft:1609091934815
 
 #define THREAD_NUM 4
 
-        sem_t semaphore;
+sem_t semaphore;
 
 void *routine(void *args)
 {
