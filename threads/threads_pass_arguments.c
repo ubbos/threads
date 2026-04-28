@@ -1,4 +1,4 @@
-// https : // code-vault.net/lesson/18ec1942c2da46840693efe9b51f9f86
+// https://code-vault.net/lesson/18ec1942c2da46840693efe9b51f9f86
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -12,6 +12,7 @@ void *routine(void *arg)
     int index = *(int *)arg;
     printf("%d ", primes[index]);
     free(arg);
+    return NULL;
 }
 
 int main(int argc, char *argv[])
@@ -24,7 +25,8 @@ int main(int argc, char *argv[])
         *a = i;
         if (pthread_create(&th[i], NULL, &routine, a) != 0)
         {
-            perror("Failed to created thread");
+            perror("Failed to create thread");
+            free(a);
         }
     }
     for (i = 0; i < 10; i++)

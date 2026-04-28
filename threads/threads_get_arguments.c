@@ -4,13 +4,13 @@
 #include <pthread.h>
 #include <time.h>
 
-void *roll_dice()
+void *roll_dice(void *arg)
 {
+    (void)arg;
     int value = (rand() % 6) + 1;
     int *result = malloc(sizeof(int));
     *result = value;
-    // printf("%d\n", value);
-    printf("Thread result: %p\n", result);
+    printf("Thread result: %d\n", *result);
     return (void *)result;
 }
 
@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
     {
         return 2;
     }
-    printf("Main res: %p\n", res);
+    printf("Main res: %d\n", *res);
     printf("Result: %d\n", *res);
     free(res);
     return 0;

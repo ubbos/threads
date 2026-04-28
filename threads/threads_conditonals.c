@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <errno.h>
+
 
 pthread_mutex_t mutexFuel;
 pthread_cond_t condFuel;
@@ -12,19 +12,22 @@ int fuel = 0;
 
 void *fuel_filling(void *arg)
 {
+    (void)arg;
     for (int i = 0; i < 5; i++)
     {
         pthread_mutex_lock(&mutexFuel);
         fuel += 15;
         printf("Filled fuel... %d\n", fuel);
-        pthread_mutex_unlock(&mutexFuel);
         pthread_cond_signal(&condFuel);
+        pthread_mutex_unlock(&mutexFuel);
         sleep(1);
     }
+    return NULL;
 }
 
 void *car(void *arg)
 {
+    (void)arg;
     pthread_mutex_lock(&mutexFuel);
     while (fuel < 40)
     {
@@ -38,6 +41,7 @@ void *car(void *arg)
     fuel -= 40;
     printf("Got fuel. Now left: %d\n", fuel);
     pthread_mutex_unlock(&mutexFuel);
+    return NULL;
 }
 
 int main(int argc, char *argv[])

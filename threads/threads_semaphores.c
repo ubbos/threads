@@ -1,4 +1,4 @@
-// https : // code-vault.net/lesson/v9l3sqtpft:1609091934815
+// https://code-vault.net/lesson/v9l3sqtpft:1609091934815
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,12 +17,13 @@ void *routine(void *args)
     printf("Hello from thread %d\n", *(int *)args);
     sem_post(&semaphore);
     free(args);
+    return NULL;
 }
 
 int main(int argc, char *argv[])
 {
     pthread_t th[THREAD_NUM];
-    sem_init(&semaphore, 0, 4);
+    sem_init(&semaphore, 0, 2);
     int i;
     for (i = 0; i < THREAD_NUM; i++)
     {

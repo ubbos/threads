@@ -54,6 +54,15 @@ int main(int argc, char *argv[])
 
     data *args = malloc(sizeof(data) * size);
 
+    if (size == 0)
+    {
+        printf("No arguments provided.\n");
+        free(th);
+        free(args);
+        return 0;
+    }
+
+    int created = 0;
     for (int i = 0; i < size; i++)
     {
 
@@ -66,9 +75,13 @@ int main(int argc, char *argv[])
 
             perror("Error creating thread");
         }
+        else
+        {
+            created++;
+        }
     }
 
-    for (int i = 0; i < size; i++)
+    for (int i = 0; i < created; i++)
     {
 
         char *res = NULL;

@@ -67,21 +67,24 @@ int main(int argc, char *argv[])
     int w_size = 2;
 
     pthread_t *r_th = malloc(sizeof(pthread_t) * r_size);
-
     pthread_t *w_th = malloc(sizeof(pthread_t) * w_size);
-
     data *r_args = malloc(sizeof(data) * r_size);
-
     data *w_args = malloc(sizeof(data) * w_size);
-
     int *n = malloc(sizeof(int));
+    pthread_rwlock_t *rw = malloc(sizeof(pthread_rwlock_t));
+
+    if (!r_th || !w_th || !r_args || !w_args || !n || !rw)
+    {
+        perror("malloc failed");
+        free(r_th); free(w_th); free(r_args); free(w_args); free(n); free(rw);
+        return 1;
+    }
 
     *n = 0;
 
-    pthread_rwlock_t *rw = malloc(sizeof(pthread_rwlock_t));
-
     pthread_rwlock_init(rw, NULL);
 
+    int w_created = 0;
     for (int i = 0; i < w_size; i++)
     {
 
@@ -94,8 +97,13 @@ int main(int argc, char *argv[])
 
             perror("Error creating writer thread");
         }
+        else
+        {
+            w_created++;
+        }
     }
 
+    int r_created = 0;
     for (int i = 0; i < r_size; i++)
     {
 
@@ -108,9 +116,13 @@ int main(int argc, char *argv[])
 
             perror("Error creating reader thread");
         }
+        else
+        {
+            r_created++;
+        }
     }
 
-    for (int i = 0; i < w_size; i++)
+    for (int i = 0; i < w_created; i++)
     {
 
         if (0 != pthread_join(w_th[i], NULL))
@@ -120,7 +132,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    for (int i = 0; i < r_size; i++)
+    for (int i = 0; i < r_created; i++)
     {
 
         if (0 != pthread_join(r_th[i], NULL))

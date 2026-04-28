@@ -9,6 +9,7 @@ pthread_barrier_t barrier;
 
 void *routine(void *args)
 {
+    (void)args;
     while (1)
     {
         printf("Waiting at the barrier...\n");

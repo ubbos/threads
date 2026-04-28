@@ -63,8 +63,9 @@ int main(int argc, char *argv[])
 
         if (0 != pthread_create(&th[i], NULL, f, &args[i]))
         {
-
             perror("Error creating thread");
+            size = i; // only join successfully created threads
+            break;
         }
     }
 

@@ -17,6 +17,7 @@ pthread_barrier_t barrierCalculated;
 void *roll(void *args)
 {
     int index = *(int *)args;
+    free(args);
     while (1)
     {
         dice_values[index] = rand() % 32 + 1;
@@ -31,7 +32,7 @@ void *roll(void *args)
             printf("(%d rolled %d) I lost\n", index, dice_values[index]);
         }
     }
-    free(args);
+    return NULL;
 }
 
 int main(int argc, char *argv[])
