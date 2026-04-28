@@ -22,7 +22,7 @@ void *routine(void *args)
     return NULL;
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
     pthread_t th[THREAD_NUM];
     sem_init(&semaphore, 0, 4);

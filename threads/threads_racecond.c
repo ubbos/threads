@@ -7,6 +7,7 @@ int mails = 0;
 
 void *routine(void *arg)
 {
+    (void)arg;
     for (int i = 0; i < 1000000; i++)
     {
         mails++;
@@ -17,7 +18,7 @@ void *routine(void *arg)
     return NULL;
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
     pthread_t p1, p2;
     if (pthread_create(&p1, NULL, &routine, NULL) != 0)

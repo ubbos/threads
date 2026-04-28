@@ -37,7 +37,7 @@ void *f(void *arg)
     return NULL;
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
 
     int size = 1000;

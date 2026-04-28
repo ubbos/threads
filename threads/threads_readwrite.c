@@ -59,7 +59,7 @@ void *r(void *arg)
     return NULL;
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
 
     int r_size = 10;

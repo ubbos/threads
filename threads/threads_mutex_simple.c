@@ -9,6 +9,7 @@ pthread_mutex_t mutex;
 
 void *routine(void *args)
 {
+    (void)args;
     for (int i = 0; i < 10000000; i++)
     {
         pthread_mutex_lock(&mutex);
@@ -21,7 +22,7 @@ void *routine(void *args)
     return NULL;
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
     pthread_t p1, p2, p3, p4;
     pthread_mutex_init(&mutex, NULL);

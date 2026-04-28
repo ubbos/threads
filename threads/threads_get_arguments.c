@@ -14,7 +14,7 @@ void *roll_dice(void *arg)
     return (void *)result;
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
     int *res;
     srand(time(NULL));

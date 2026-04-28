@@ -35,7 +35,7 @@ void *roll(void *args)
     return NULL;
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
     srand(time(NULL));
     pthread_t th[THREAD_NUM];

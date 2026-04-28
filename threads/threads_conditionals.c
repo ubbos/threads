@@ -44,7 +44,7 @@ void *car(void *arg)
     return NULL;
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
     pthread_t th[2];
     pthread_mutex_init(&mutexFuel, NULL);
