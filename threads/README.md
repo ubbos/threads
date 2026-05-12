@@ -59,9 +59,18 @@ pthread_mutex_unlock(&mtx);
 pthread_mutex_destroy(&mtx);
 ```
 
-### Examples — `04_threads_mutex_simple.c`, `05_threads_mutex.c`
+### Practical examples
 
-`04` protects a shared mail counter incremented by 4 threads. `05` passes the mutex inside a struct to 1000 threads each incrementing a counter 1000 times, expecting a final value of 1,000,000.
+| Scenario | Why a mutex fits |
+|----------|-----------------|
+| Bank account balance updated by multiple threads | Only one transfer at a time must modify the balance |
+| Log file written by many threads | Lines must not interleave mid-write |
+| Reference counter (e.g. shared pointer) | Increment/decrement must be atomic |
+
+**In this repo:**
+
+- `04_threads_mutex_simple.c` — a shared `mails` counter is incremented by 4 threads 10,000,000 times each. Without the mutex the final value is wrong due to lost updates; with it the result is always 40,000,000.
+- `05_threads_mutex.c` — the mutex is bundled inside a `data` struct and passed to 1,000 threads, each incrementing a counter 1,000 times. Expected final value: 1,000,000.
 
 ---
 
@@ -105,9 +114,17 @@ pthread_rwlock_unlock(&rw);
 pthread_rwlock_destroy(&rw);
 ```
 
-### Example — `06_threads_readwrite.c`
+### Practical examples
 
-10 reader threads each print the current value of a counter 10 times; 2 writer threads each increment it 1000 times. Readers and writers run concurrently — readers never block each other, but a writer blocks everything while it increments.
+| Scenario | Why a read-write lock fits |
+|----------|---------------------------|
+| In-memory cache read by many threads, refreshed occasionally | Many readers can proceed in parallel; only a cache refresh needs exclusive access |
+| Configuration object loaded once, read everywhere | All threads read freely; the rare config reload takes exclusive access |
+| Shared leaderboard (frequent reads, infrequent score updates) | Readers see consistent scores; a writer locks only during the update |
+
+**In this repo:**
+
+- `06_threads_readwrite.c` — 10 reader threads each print the current value of a counter 10 times; 2 writer threads each increment it 1,000 times. Readers never block each other — multiple `printf` calls run in parallel — but each writer gets exclusive access for its increment.
 
 ---
 
@@ -180,9 +197,17 @@ pthread_cond_signal(&cond);             // signal BEFORE unlock
 pthread_mutex_unlock(&mtx);
 ```
 
-### Example — `07_threads_conditionals.c`
+### Practical examples
 
-A `fuel_filling` thread adds 15 units of fuel five times, signalling after each fill. A `car` thread waits until at least 40 units are available, then consumes them.
+| Scenario | Why a condition variable fits |
+|----------|------------------------------|
+| Producer/consumer queue | Consumer sleeps until the producer adds an item; producer signals |
+| Thread pool worker waiting for a task | Worker sleeps on an empty queue; dispatcher signals when a job arrives |
+| Car waiting for enough fuel | Car thread sleeps until fuel level reaches the required amount |
+
+**In this repo:**
+
+- `07_threads_conditionals.c` — a `fuel_filling` thread adds 15 units of fuel five times, signalling the condition variable after each fill (while still holding the mutex). A `car` thread waits in a `while` loop until at least 40 units are available, then consumes them and exits.
 
 ---
 
@@ -219,13 +244,19 @@ sem_post(&sem);          // increment (wake one waiter)
 
 > **macOS note:** `sem_init` / `sem_destroy` are deprecated on macOS. Use named semaphores (`sem_open` / `sem_close` / `sem_unlink`) instead when targeting macOS.
 
-### Example — `08_threads_semaphores.c`
+### Practical examples
 
-Four threads each want to print a message after sleeping for 1 second. The semaphore is initialised to **2**, so at most 2 threads run the critical section at a time, making the output appear in pairs rather than all at once.
+| Scenario | Why a semaphore fits |
+|----------|---------------------|
+| Database connection pool (max 10 connections) | `sem_init(..., 10)` — each thread acquires a slot before querying, releases after |
+| Rate-limiting API calls (max 3 concurrent requests) | `sem_init(..., 3)` — excess threads block until a request finishes |
+| Login system with limited concurrent sessions | `sem_init(..., N)` — only N users can be logged in at once |
+| Signalling between a producer and consumer | Producer calls `sem_post` after adding an item; consumer calls `sem_wait` before taking one |
 
-### Example — `09_threads_semaphores_login.c`
+**In this repo:**
 
-Simulates a login system with 16 users but only **4** concurrent login slots. Each thread waits at `sem_wait` until a slot is free, "logs in" for a random time, then releases the slot with `sem_post`.
+- `08_threads_semaphores.c` — 4 threads each sleep 1 second then print a message. With `sem_init(..., 2)` only 2 threads enter the critical section at a time, so output appears in pairs ~1 second apart instead of all at once.
+- `09_threads_semaphores_login.c` — 16 user threads simulate a login system with only 4 concurrent slots (`sem_init(..., 4)`). Each thread prints "Waiting", acquires the semaphore, prints "Logged in", sleeps a random amount, prints "Logged out", then releases. At most 4 are ever logged in simultaneously.
 
 ---
 
@@ -259,19 +290,18 @@ pthread_barrier_wait(&barrier);
 
 > **macOS note:** `pthread_barrier_t` is not available on macOS (it is a POSIX optional feature). These examples compile and run on Linux.
 
-### Example — `10_threads_barrier.c`
+### Practical examples
 
-Ten threads loop forever. Each iteration: print "Waiting at the barrier…", sleep, then call `pthread_barrier_wait`. All ten threads cross together, print "We passed the barrier", and repeat.
+| Scenario | Why a barrier fits |
+|----------|--------------------|
+| Parallel matrix multiplication — each thread computes one row | All rows must be done before the result matrix is used |
+| Multi-threaded simulation with discrete time steps | All threads must finish step N before any thread begins step N+1 |
+| Parallel sort — split, sort, then merge | Sorting phase must complete in all threads before the merge begins |
+| Multi-round game where all players must act before results are shown | All players roll/move, then results are revealed simultaneously |
 
-### Example — `11_threads_barrier_example.c`
+**In this repo:**
 
-A multi-round dice game with 8 threads and 2 barriers:
-
-```
-Phase 1 │ Each thread rolls a die → pthread_barrier_wait(barrierRolledDice)
-        │ (main thread) finds the highest value, marks winners/losers
-Phase 2 │ pthread_barrier_wait(barrierCalculated)
-        │ Each thread prints whether it won or lost → repeat
-```
-
-Two barriers are required: the first ensures all dice are rolled before the winner is calculated; the second ensures the winner is calculated before any thread prints its result.
+- `10_threads_barrier.c` — 10 threads loop indefinitely. Each iteration every thread prints "Waiting at the barrier…" and sleeps, then calls `pthread_barrier_wait`. Only when all 10 have arrived do they all print "We passed the barrier" and start the next round together.
+- `11_threads_barrier_example.c` — a multi-round dice game with 8 player threads and a judge (main thread), using two barriers per round:
+  - **Barrier 1** (`barrierRolledDice`) — all 8 threads roll their dice; the judge waits here too. Once everyone has rolled, the judge calculates the winner.
+  - **Barrier 2** (`barrierCalculated`) — threads wait while the judge works. Once the judge posts results, all threads cross together and print whether they won or lost.
