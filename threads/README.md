@@ -29,9 +29,103 @@ gcc -Wall -Wextra -Werror -g -o a <file.c> -pthread
 
 ---
 
+## 7.1 Mutexes
+
+A **mutex** (mutual exclusion lock) ensures that only one thread at a time can execute a critical section — a block of code that reads or writes shared data. All other threads that try to lock the mutex block until the owning thread unlocks it.
+
+**When to use:** any time two or more threads access the same variable and at least one of them writes to it.
+
+### Operations
+
+| Operation | Function | Description |
+|-----------|----------|-------------|
+| Initialise | `pthread_mutex_init(&mtx, NULL)` | Set up the mutex before use. Can also use the static initialiser `PTHREAD_MUTEX_INITIALIZER`. |
+| Lock | `pthread_mutex_lock(&mtx)` | Acquire the mutex. Blocks if another thread holds it. |
+| Unlock | `pthread_mutex_unlock(&mtx)` | Release the mutex, allowing one waiting thread to proceed. |
+| Destroy | `pthread_mutex_destroy(&mtx)` | Free resources after the mutex is no longer needed. |
+
+```c
+#include <pthread.h>
+
+pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
+// or: pthread_mutex_init(&mtx, NULL);
+
+pthread_mutex_lock(&mtx);
+// --- critical section ---
+shared_variable++;
+// ------------------------
+pthread_mutex_unlock(&mtx);
+
+pthread_mutex_destroy(&mtx);
+```
+
+### Examples — `04_threads_mutex_simple.c`, `05_threads_mutex.c`
+
+`04` protects a shared mail counter incremented by 4 threads. `05` passes the mutex inside a struct to 1000 threads each incrementing a counter 1000 times, expecting a final value of 1,000,000.
+
+---
+
+## 7.2 Read-Write Locks
+
+A **read-write lock** distinguishes between readers and writers. Multiple threads may read simultaneously (shared access), but a writer requires exclusive access — no other readers or writers can proceed while a write is in progress.
+
+**When to use:** when reads are frequent and writes are rare. A plain mutex would serialise all readers unnecessarily.
+
+| Access type | Concurrency |
+|-------------|-------------|
+| Multiple readers | Allowed simultaneously |
+| One writer | Exclusive — blocks all readers and other writers |
+
+### Operations
+
+| Operation | Function | Description |
+|-----------|----------|-------------|
+| Initialise | `pthread_rwlock_init(&rw, NULL)` | Set up the lock before use. |
+| Read lock | `pthread_rwlock_rdlock(&rw)` | Acquire shared (read) access. Blocks only if a writer holds the lock. |
+| Write lock | `pthread_rwlock_wrlock(&rw)` | Acquire exclusive (write) access. Blocks until all readers and writers release. |
+| Unlock | `pthread_rwlock_unlock(&rw)` | Release either a read or write lock. |
+| Destroy | `pthread_rwlock_destroy(&rw)` | Free resources. |
+
+```c
+#include <pthread.h>
+
+pthread_rwlock_t rw;
+pthread_rwlock_init(&rw, NULL);
+
+// Reader thread
+pthread_rwlock_rdlock(&rw);
+printf("%d\n", shared_value);   // safe to read concurrently
+pthread_rwlock_unlock(&rw);
+
+// Writer thread
+pthread_rwlock_wrlock(&rw);
+shared_value++;                 // exclusive access
+pthread_rwlock_unlock(&rw);
+
+pthread_rwlock_destroy(&rw);
+```
+
+### Example — `06_threads_readwrite.c`
+
+10 reader threads each print the current value of a counter 10 times; 2 writer threads each increment it 1000 times. Readers and writers run concurrently — readers never block each other, but a writer blocks everything while it increments.
+
+---
+
 ## 7.3 Condition Variables
 
 A **condition variable** lets a thread sleep until some condition becomes true. It is always used together with a mutex.
+
+**When to use:** when a thread needs to wait for a specific state in shared data (e.g. "wait until the queue is non-empty"), not just for exclusive access.
+
+### Operations
+
+| Operation | Function | Description |
+|-----------|----------|-------------|
+| Initialise | `pthread_cond_init(&cond, NULL)` | Set up the condition variable. Can also use `PTHREAD_COND_INITIALIZER`. |
+| Wait | `pthread_cond_wait(&cond, &mtx)` | Atomically unlock the mutex and sleep. Re-locks the mutex before returning. Must be called with the mutex held. |
+| Signal | `pthread_cond_signal(&cond)` | Wake one waiting thread. |
+| Broadcast | `pthread_cond_broadcast(&cond)` | Wake all waiting threads. |
+| Destroy | `pthread_cond_destroy(&cond)` | Free resources. |
 
 ### The problem
 
@@ -96,10 +190,19 @@ A `fuel_filling` thread adds 15 units of fuel five times, signalling after each 
 
 A **semaphore** is an integer counter that controls access to a shared resource. Unlike a mutex (which is either locked or unlocked), a semaphore can allow up to *N* threads through simultaneously.
 
-- `sem_wait` decrements the counter; if it would go below zero the thread blocks.
-- `sem_post` increments the counter, waking a blocked thread if any.
+**When to use:** when you need to limit the number of threads concurrently accessing a resource (e.g. at most 4 database connections, at most 2 threads in a critical section). Also useful for signalling between threads, since any thread may call `sem_post` — not just the one that called `sem_wait`.
 
-A semaphore initialised to **1** behaves like a mutex. One initialised to **N** allows at most N threads to proceed concurrently.
+- A semaphore initialised to **1** behaves like a mutex.
+- A semaphore initialised to **N** allows at most N threads to proceed concurrently.
+
+### Operations
+
+| Operation | Function | Description |
+|-----------|----------|-------------|
+| Initialise | `sem_init(&sem, 0, N)` | Set the counter to N. Second argument `0` means shared between threads (not processes). |
+| Wait (down) | `sem_wait(&sem)` | Decrement the counter. Blocks if the counter is 0. |
+| Post (up) | `sem_post(&sem)` | Increment the counter. Wakes one blocked thread if any. |
+| Destroy | `sem_destroy(&sem)` | Free resources. |
 
 ### Key functions
 
@@ -129,6 +232,16 @@ Simulates a login system with 16 users but only **4** concurrent login slots. Ea
 ## 7.5 Barriers
 
 A **barrier** makes a group of threads wait until *all* of them have reached the same point, then releases them together. This is useful when parallel work must be fully complete before the next phase begins.
+
+**When to use:** multi-phase parallel algorithms where phase N+1 must not start until every thread has finished phase N.
+
+### Operations
+
+| Operation | Function | Description |
+|-----------|----------|-------------|
+| Initialise | `pthread_barrier_init(&b, NULL, N)` | Set the threshold to N threads. |
+| Wait | `pthread_barrier_wait(&b)` | Block until N threads have called wait. All are released simultaneously. Returns `PTHREAD_BARRIER_SERIAL_THREAD` in exactly one thread, `0` in the rest. |
+| Destroy | `pthread_barrier_destroy(&b)` | Free resources. |
 
 ### Key functions
 
