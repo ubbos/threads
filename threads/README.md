@@ -29,6 +29,20 @@ gcc -Wall -Wextra -Werror -g -o a <file.c> -pthread
 
 ---
 
+## Choosing a synchronization primitive
+
+| Primitive | Use when... | Key property |
+|-----------|-------------|--------------|
+| **Mutex** | Any shared write — you need exclusive access | Binary lock: one thread at a time |
+| **Read-Write Lock** | Reads are frequent, writes are rare | Many concurrent readers OR one exclusive writer |
+| **Condition Variable** | A thread must wait for a *specific state* in shared data | Sleep/wake based on a condition; always paired with a mutex |
+| **Semaphore** | Limit N concurrent accesses, or signal across threads | Counter: allows up to N threads through simultaneously |
+| **Barrier** | All threads must finish phase N before any starts phase N+1 | Rendezvous point — releases all at once |
+
+If you are unsure, start with a mutex. Upgrade to a rwlock when profiling shows reader contention; introduce condition variables when you find yourself polling a flag inside a locked loop.
+
+---
+
 ## 7.1 Mutexes
 
 A **mutex** (mutual exclusion lock) ensures that only one thread at a time can execute a critical section — a block of code that reads or writes shared data. All other threads that try to lock the mutex block until the owning thread unlocks it.
@@ -209,6 +223,23 @@ pthread_mutex_unlock(&mtx);
 
 - `07_threads_conditionals.c` — a `fuel_filling` thread adds 15 units of fuel five times, signalling the condition variable after each fill (while still holding the mutex). A `car` thread waits in a `while` loop until at least 40 units are available, then consumes them and exits.
 
+**From Horea's problem set:**
+
+| Problem | How condition variables are used |
+|---------|----------------------------------|
+| 17 | Two threads alternate appending even/odd numbers to an array. Each thread signals the other after appending, and waits if it is not its turn. |
+| 27 | N generator threads fill a 128-character buffer; a printer thread waits on a condition until the buffer is full, then prints and clears it. |
+| 28 | N sorter threads randomly swap array elements; the (N+1)th thread waits on a condition until a sorter detects the array is sorted, then prints it. |
+| 30 | Relay race — each thread in a team of 4 waits for the previous thread to signal before it starts its leg. |
+
+### Common mistakes
+
+| Mistake | Consequence | Fix |
+|---------|-------------|-----|
+| Using `if` instead of `while` around `pthread_cond_wait` | Spurious wakeups cause the thread to proceed when the condition is still false | Always use `while (!condition)` |
+| Calling `pthread_cond_signal` outside the mutex | Signal can fire between the check and the sleep — missed wakeup | Call signal while holding the mutex |
+| Forgetting that `pthread_cond_wait` re-acquires the mutex on return | Double-lock or assuming the condition cannot change after waking | Re-check the condition in the `while` loop |
+
 ---
 
 ## 7.4 Semaphores
@@ -242,8 +273,6 @@ sem_wait(&sem);          // decrement (block if 0)
 sem_post(&sem);          // increment (wake one waiter)
 ```
 
-> **macOS note:** `sem_init` / `sem_destroy` are deprecated on macOS. Use named semaphores (`sem_open` / `sem_close` / `sem_unlink`) instead when targeting macOS.
-
 ### Practical examples
 
 | Scenario | Why a semaphore fits |
@@ -257,6 +286,20 @@ sem_post(&sem);          // increment (wake one waiter)
 
 - `08_threads_semaphores.c` — 4 threads each sleep 1 second then print a message. With `sem_init(..., 2)` only 2 threads enter the critical section at a time, so output appears in pairs ~1 second apart instead of all at once.
 - `09_threads_semaphores_login.c` — 16 user threads simulate a login system with only 4 concurrent slots (`sem_init(..., 4)`). Each thread prints "Waiting", acquires the semaphore, prints "Logged in", sleeps a random amount, prints "Logged out", then releases. At most 4 are ever logged in simultaneously.
+
+**From Horea's problem set:**
+
+| Problem | How semaphores are used |
+|---------|------------------------|
+| 20 | M checkpoints, each allowing only 1 thread at a time. Each checkpoint is a `sem_init(..., 1)`. All threads wait on a start semaphore until all have been created. |
+| 21 | Checkpoints with halving capacity: checkpoint X allows `2^(N-1-X)` threads simultaneously. Each is a semaphore initialised to that value. |
+
+### Common mistakes
+
+| Mistake | Consequence | Fix |
+|---------|-------------|-----|
+| Initialising to the wrong N | Too large: resource is never actually limited. Too small: deadlock. | Think: "how many threads should be inside at the same time?" |
+| Calling `sem_post` from the wrong thread | Releases a slot that was never acquired — N can exceed the intended limit | Ensure every `sem_wait` has exactly one matching `sem_post` per thread |
 
 ---
 
@@ -288,8 +331,6 @@ pthread_barrier_wait(&barrier);
 // Returns PTHREAD_BARRIER_SERIAL_THREAD in exactly one thread; 0 in the rest.
 ```
 
-> **macOS note:** `pthread_barrier_t` is not available on macOS (it is a POSIX optional feature). These examples compile and run on Linux.
-
 ### Practical examples
 
 | Scenario | Why a barrier fits |
@@ -305,3 +346,18 @@ pthread_barrier_wait(&barrier);
 - `11_threads_barrier_example.c` — a multi-round dice game with 8 player threads and a judge (main thread), using two barriers per round:
   - **Barrier 1** (`barrierRolledDice`) — all 8 threads roll their dice; the judge waits here too. Once everyone has rolled, the judge calculates the winner.
   - **Barrier 2** (`barrierCalculated`) — threads wait while the judge works. Once the judge posts results, all threads cross together and print whether they won or lost.
+
+**From Horea's problem set:**
+
+| Problem | How barriers are used |
+|---------|-----------------------|
+| 19 | Tree-sum: threads at level N+1 must all finish before level N threads can add their results. A barrier separates each level of the tree. |
+| 28 | The barrier solution (`28-barr.c`) uses a barrier so all sorter threads synchronize between swap rounds before the checker thread inspects the array. |
+| 32 | After each reading pass (1–3 words per thread), all threads wait at a barrier before starting the next pass, ensuring no thread races ahead. |
+
+### Common mistakes
+
+| Mistake | Consequence | Fix |
+|---------|-------------|-----|
+| Initialising with the wrong thread count | Too few: barrier releases early. Too many: deadlock — barrier never triggers. | Count must equal exactly the number of threads that will call `pthread_barrier_wait` |
+| Reusing a barrier while some threads have not yet crossed | Undefined behaviour — late threads may enter the next round's barrier | Ensure all threads cross before any thread re-enters the barrier |
